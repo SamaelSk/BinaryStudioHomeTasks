@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Linq;
 using System.Threading.Tasks;
 using Task1.Models;
+using System;
 
 namespace Task1
 {
@@ -13,18 +14,50 @@ namespace Task1
         
         static async Task Main(string[] args)
         {
-            await GetUserTasksCountPerProject();
+            await GetUserTasksCountPerProject(109);
         }
 
-        private static async Task GetUserTasksCountPerProject()
+        private static async Task<Dictionary<int, int>> GetUserTasksCountPerProject(int id)
         {
             List<ProjectTask> tasks = await GetTasks();
             
-            Dictionary<int, int> grouped = tasks
-                .Where(t => t.performerId == 109)
+            return tasks
+                .Where(t => t.performerId == id)
                 .GroupBy(t => t.projectId)
                 .ToDictionary(g => g.Key, g => g.Count());
         }
+        private static async Task<List<ProjectTask>> GetUserTasksByID(int id)
+        {
+            List<ProjectTask> allTasks = await GetTasks();
+            return allTasks
+                .Where(t => t.performerId == id)
+                .Where(t => t.name.Length < 45)
+                .ToList();
+        }
+        private static async Task<List<TaskIdToName>> GetUserFinishedTasks(int id)
+        {
+            var periodFrom = new DateTime(2021, 1, 1, 0, 0, 0);
+            var periodTo = new DateTime(2021, 12, 31, 23, 59, 0);
+            List<ProjectTask> allTasks = await GetTasks();
+            return allTasks
+                .Where(t => t.performerId == id)
+                .Where(t => t.finishedAt > periodFrom)
+                .Where(t => t.finishedAt < periodTo)
+                .Select(t => new TaskIdToName { Id = t.id, Name = t.name})
+                .ToList();
+        }
+
+        private static async Task<List<UserToTasks>> GetSortedUsersWithTasks()
+        {
+            List<ProjectTask> allProjectTasks = await GetTasks();
+            return allProjectTasks
+                .GroupBy(t => t.performerId)
+                .Select( g => new UserToTasks { UserName =  GetUserById(g.Key).Result.firstName, ProjectTasks = g.OrderBy(t => t.name.Length).ToList() })
+                .OrderBy(o => o.UserName)
+                .ToList();
+        }
+
+
 
         static async Task<List<Project>> GetProjects()
         {
